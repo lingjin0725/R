@@ -1,0 +1,179 @@
+---
+title: "Final Project"
+author: "Ling Jin"
+date: "2024-12-01"
+output: pdf_document
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(comment = NA)
+```
+
+# Introduction
+## This project analyzes the "Higher Education Students Performance Evaluation" dataset to identify factors affecting academic performance. Various regression and classification methods will be applied. The main questions of interest are:
+## 1. What are the strongest predictors of cumulative GPA?
+## 2. How do socio-economic factors influence student performance?
+## 3. How do educational habits correlate with academic outcomes?
+
+```{r}
+# Load Libraries
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(ggplot2)
+library(corrplot)
+library(knitr)
+library(pROC)
+```
+
+# Load Data
+```{r}
+# Load the dataset
+data <- read.csv("Higher Education Students Performance Evaluation.csv")
+
+# Remove unique identifier STUDENT.ID
+data <- data %>% select(-STUDENT.ID)
+
+# View the structure
+str(data)
+summary(data)
+```
+
+# Data Cleaning
+```{r}
+# Check for missing values
+sum(is.na(data))
+
+# Handle missing values
+data <- data %>% mutate_if(is.numeric, ~ ifelse(is.na(.), median(., na.rm = TRUE), .))
+
+# Convert categorical variables to factors
+data <- data %>%
+  mutate(across(where(is.character), as.factor))
+
+# Verify cleaned data
+summary(data)
+```
+
+# Exploratory Data Analysis
+```{r}
+# Visualization: Distribution of GRADE
+ggplot(data, aes(x = GRADE)) +
+  geom_histogram(bins = 30, fill = "blue", alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Distribution of GRADE", x = "GRADE", y = "Frequency")
+
+# Correlation matrix for numeric variables
+numeric_vars <- select_if(data, is.numeric)
+cor_matrix <- cor(numeric_vars, use = "complete.obs")
+corrplot(cor_matrix, method = "color", type = "lower", tl.cex = 0.8, addCoef.col = "black")
+```
+
+# Statistical Modeling
+## Regression for GPA Prediction
+## Linear Regression 
+```{r}
+# Splitting data into training and testing
+set.seed(123)
+trainIndex <- createDataPartition(data$GRADE, p = .7, 
+                                  list = FALSE, times = 1)
+trainData <- data[trainIndex, ]
+testData <- data[-trainIndex, ]
+
+# Fit Linear Regression Model
+lm_model <- lm(GRADE ~ ., data = trainData)
+summary(lm_model)
+
+# Predict and evaluate
+lm_pred <- predict(lm_model, testData)
+lm_mse <- mean((lm_pred - testData$GRADE)^2)
+lm_mse
+```
+
+## Random Forest Regression
+```{r}
+# Fit Random Forest Model
+rf_model <- randomForest(GRADE ~ ., data = trainData, importance = TRUE)
+print(rf_model)
+
+# Feature importance
+importance(rf_model)
+varImpPlot(rf_model)
+
+# Predict and evaluate
+rf_pred <- predict(rf_model, testData)
+rf_mse <- mean((rf_pred - testData$GRADE)^2)
+rf_mse
+```
+
+# Classification for Performance Categories
+## Logistic Regression
+```{r}
+# Create performance categories
+data <- data %>%
+  mutate(Performance = cut(GRADE,
+                           breaks = c(-Inf, 2.0, 3.0, Inf),
+                           labels = c("Low", "Medium", "High")))
+
+# Split again with Performance included
+trainData <- data[trainIndex, ]
+testData <- data[-trainIndex, ]
+
+# Fit Logistic Regression Model
+log_model <- glm(Performance ~ ., data = trainData, family = "binomial")
+summary(log_model)
+
+# Predict and evaluate
+log_pred <- predict(log_model, testData, type = "response")
+confusionMatrix(as.factor(ifelse(log_pred > 0.5, "High", "Low")),
+                as.factor(testData$Performance))
+```
+
+## KNN Classification
+```{r}
+# Train and evaluate KNN
+set.seed(123)
+knn_model <- train(Performance ~ ., data = trainData, method = "knn", 
+                   trControl = trainControl(method = "cv", number = 10),
+                   tuneLength = 10)
+
+# Evaluate performance
+knn_pred <- predict(knn_model, testData)
+confusionMatrix(knn_pred, testData$Performance)
+```
+
+# Results and Conclusion
+
+# Regression Results
+## When comparing models for GPA prediction, Linear Regression yielded a MSE of 4.24, demonstrating its capability to capture linear relationships but highlighting its limitations in handling complex datasets with non-linear dependencies. In contrast, Random Forest outperformed Linear Regression with a lower MSE of 2.70, explaining 47.36% of the variance in GPA. It effectively captured non-linear interactions and emphasized the relative importance of variables, with 'X29' (educational habits) and 'COURSE.ID' emerging as the top predictors, making it a more robust choice for modeling academic performance.
+```{r}
+# Compare regression MSE
+results <- data.frame(Model = c("Linear Regression", "Random Forest"),
+                      MSE = c(lm_mse, rf_mse))
+kable(results, caption = "Comparison of Regression Models")
+```
+
+# Classification Results
+## For classification tasks, Logistic Regression failed to converge, achieving an accuracy of 0.000, which highlights its unsuitability for this dataset without further preprocessing or transformations. In contrast, KNN achieved a high accuracy of 88.1% (0.881), effectively classifying students into performance categories (Low, Medium, High). Its balanced accuracy and consistent performance across all categories underscored its robustness and effectiveness for classification tasks in this dataset, making it a more reliable model compared to Logistic Regression.
+```{r}
+# Compare classification accuracy
+classification_results <- data.frame(Model = c("Logistic Regression", "KNN"),
+                                     Accuracy = c(mean(log_pred == testData$Performance, na.rm = TRUE), 
+                                                  mean(knn_pred == testData$Performance)))
+kable(classification_results, caption = "Comparison of Classification Models")
+```
+
+# ROC Curve for KNN
+## The ROC curve for the KNN model revealed strong classification performance, particularly in distinguishing high-performing students. 
+```{r}
+# ROC Curve for KNN
+knn_prob <- predict(knn_model, testData, type = "prob")
+roc_curve <- roc(as.numeric(testData$Performance), knn_prob[, "High"])
+plot(roc_curve, main = "ROC Curve for KNN Model")
+```
+
+# Conclusion
+## The project on “Higher Education Students Performance Evaluation” provided valuable insights into factors influencing academic outcomes. A combination of regression and classification models was employed to uncover the strongest predictors of GPA, analyze socio-economic influences, and evaluate educational habits' correlation with academic performance. The findings underline the interplay of behavioral, socio-economic, and institutional factors in shaping academic success.
+## Key predictors identified include weekly study hours (X20) and educational habits (X29), emphasizing the critical role of structured study routines and consistent effort in achieving high academic performance. The Random Forest Regression model emerged as the most effective tool for GPA prediction, outperforming Linear Regression by capturing complex non-linear interactions and explaining 47.36% of GPA variance. The Random Forest analysis also highlighted COURSE.ID as a significant variable, suggesting that course-specific factors and learning environments substantially influence outcomes.
+## The classification tasks demonstrated the reliability of the KNN model for categorizing student performance levels. With an accuracy of 88.1%, KNN effectively classified students into Low, Medium, and High-performance categories, showcasing its applicability for educational data. Conversely, Logistic Regression struggled with convergence issues, indicating its limitations with the dataset’s structure and complexity. The strong ROC curve for KNN further validated its efficacy in distinguishing high-performing students.
+## In conclusion, the project sheds light on the importance of fostering productive educational habits and addressing socio-economic disparities to enhance academic performance. These insights could guide educators and policymakers in developing targeted interventions, such as structured study programs, enhanced parental engagement, and inclusive support strategies.
