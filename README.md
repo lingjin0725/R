@@ -1,9 +1,6 @@
-# Higher Education Students Performance Evaluation
+## Higher Education Students Performance Evaluation
 
-## Author: Ling Jin  
-## Date: December 1, 2024  
-
-## Introduction
+### Introduction
 This project analyzes the "Higher Education Students Performance Evaluation" dataset to identify factors affecting academic performance. The study aims to predict students' cumulative GPA and classify performance categories based on various socio-economic and educational factors.
 
 The main research questions include:
@@ -11,7 +8,7 @@ The main research questions include:
 2. How do socio-economic factors influence student performance?
 3. How do educational habits correlate with academic outcomes?
 
-## Methodology
+### Methodology
 
 ### Data Collection & Preprocessing
 The dataset was obtained from the UCI Machine Learning Repository and includes demographic, academic, and behavioral attributes. The key preprocessing steps involved:
