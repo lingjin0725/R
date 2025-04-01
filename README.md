@@ -1,4 +1,4 @@
-## Higher Education Students Performance Evaluation Using R
+## Student Performance Prediction Using R & Machine Learning Models 
 
 ### Introduction
 This project analyzes the "Higher Education Students Performance Evaluation" dataset to identify factors affecting academic performance. The study aims to predict students' cumulative GPA and classify performance categories based on various socio-economic and educational factors.
